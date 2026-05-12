@@ -207,7 +207,7 @@ const CollectionForm: React.FC<CollectionFormProps> = ({
       id_pinjam: activeLoan?.id_pinjaman,
       nama: customerName,
       jumlah: parseInt(amount.replace(/\D/g, '')),
-      foto: photo,
+      fotoBayar: photo,
       lokasi: finalLocation
     };
 
