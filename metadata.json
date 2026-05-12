@@ -1,0 +1,8 @@
+{
+  "name": "vercel penagih",
+  "description": "A field collection application for tracking payments with automated photo capture and GPS location tagging.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
