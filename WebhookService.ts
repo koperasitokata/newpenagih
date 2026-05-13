@@ -8,7 +8,7 @@ export const WebhookService = {
     status: string;
   }) => {
     try {
-      await fetch("https://n8n.tokata.site/webhook/angsuran", {
+      await fetch("https://n8n.tokata.site/webhook-test/angsuran", {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "text/plain" },
