@@ -306,6 +306,28 @@ function bayarAngsuran(payload) {
       activeSheet.getRange(i + 1, sisaCol + 1).setValue(newSisa);
       if (newSisa <= 0) activeSheet.getRange(i + 1, statusCol + 1).setValue("Lunas");
       angsuranSheet.appendRow(["PAY" + new Date().getTime(), new Date(), payload.id_pinjam, payload.id_nasabah, payload.jumlah, newSisa, payload.petugas, payload.fotoBayar]);
+      
+      // Kirim data pembayaran angsuran ke n8n webhook
+      try {
+        const dataWebhook = {
+          id_pinjaman: payload.id_pinjam,
+          jumlah_bayar: payload.jumlah,
+          sisa_hutang: newSisa,
+          petugas: payload.petugas,
+          tanggal_bayar: new Date(),
+          status: newSisa <= 0 ? "LUNAS" : "ANGSURAN MASUK"
+        };
+
+        UrlFetchApp.fetch("https://n8n.tokata.site/webhook/angsuran", {
+          method: "post",
+          contentType: "application/json",
+          payload: JSON.stringify(dataWebhook),
+          muteHttpExceptions: true
+        });
+      } catch(err) {
+        Logger.log("Webhook n8n gagal: " + err);
+      }
+      
       return createResponse({ success: true });
     }
   }
