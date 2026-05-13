@@ -15,6 +15,7 @@ import ReceiptPopup from './components/ReceiptPopup';
 import ProfileSettings from './components/ProfileSettings';
 import Login from './components/Login';
 import { ApiService } from './ApiService';
+import { WebhookService } from './WebhookService';
 import { Home, FileSignature, Camera, Users, Map as MapIcon, Loader2, AlertCircle, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -89,36 +90,31 @@ const App: React.FC = () => {
   const [apiError, setApiError] = useState<string | null>(null);
   
   const [petugas, setPetugas] = useState<PetugasProfile>({ id_petugas: '', nama: 'Memuat...', no_hp: '', jabatan: 'KOLEKTOR', foto: '' });
+  const dataSyncedRef = useRef(false);
 
   const prevSubmissionsRef = useRef<PengajuanPinjaman[]>([]);
 
   const loadData = useCallback(async (showFullLoader = true) => {
     const petugasId = petugas.id_petugas || (petugas as any).id;
-    
-    // We want to fetch data even if not authenticated (sync before login)
-    // but we need a role for getDashboardData. Default to KOLEKTOR if not authenticated.
     const userRole = String(petugas.jabatan || 'KOLEKTOR').toUpperCase();
     
-    if (showFullLoader && isAuthenticated) setIsLoading(true);
-    else if (!isAuthenticated) {
-      // Don't show full screen loader during pre-auth sync to avoid blocking login UI
-      setIsRefreshing(true);
-    } else {
-      setIsRefreshing(true);
-    }
+    // Optimasi: Jika sudah pernah sinkron (dataSyncedRef), jangan tampilkan full loader 
+    // agar transisi setelah login mulus tanpa menunggu loading lagi.
+    const shouldShowFullLoader = showFullLoader && isAuthenticated && !dataSyncedRef.current;
+
+    if (shouldShowFullLoader) setIsLoading(true);
+    else setIsRefreshing(true);
     
     setApiError(null);
     
     try {
       // 1. Ambil data utama via POST (Dashboard logic)
-      // Only call getDashboardData if we have an ID, otherwise rely on getData()
       let response = { success: false, data: {}, message: '' };
       if (petugasId) {
         response = await ApiService.getDashboardData(petugas.jabatan, petugasId);
       }
       
       // 2. Ambil data tambahan via GET (doGet logic)
-      // This is the primary source for pre-auth sync
       let getResponse = { success: false, data: {} };
       try {
         getResponse = await ApiService.getData();
@@ -137,6 +133,7 @@ const App: React.FC = () => {
       };
       
       setApiError(null);
+      dataSyncedRef.current = true;
       
       // Ambil data pengajuan dari berbagai kemungkinan field
       let allSubmissionsMap = new Map<string, PengajuanPinjaman>();
@@ -605,11 +602,24 @@ const App: React.FC = () => {
   const handleAddRecord = async (payload: any) => {
     try {
       const res = await ApiService.bayarAngsuran({
+        pakaiSimpanan: false,
+        jumlahSimpananDiterapkan: 0,
         ...payload,
         petugas: petugas.nama
       });
       if (res.success) {
+        // Kirim data pembayaran angsuran ke n8n webhook via Service
         const activeLoan = records.find(r => r.id_pinjaman === payload.id_pinjam);
+        const newSisa = activeLoan ? activeLoan.sisa_hutang - payload.jumlah : 0;
+        
+        WebhookService.sendAngsuranWebhook({
+          id_pinjam: payload.id_pinjam,
+          jumlah: payload.jumlah,
+          sisa_hutang: newSisa,
+          petugas: petugas.nama,
+          status: newSisa <= 0 ? "LUNAS" : "ANGSURAN_MASUK"
+        });
+
         const activeNasabah = nasabahList.find(n => n.id_nasabah === payload.id_nasabah);
         
         if (activeLoan && activeNasabah) {
@@ -653,6 +663,26 @@ const App: React.FC = () => {
         petugas: petugas.nama
       });
       if (res.success) {
+        // Cari data pengajuan asli untuk melengkapi data webhook
+        const subData = submissions.find(s => s.id_pengajuan === payload.id_pengajuan);
+        
+        // Hitung cicilan untuk payload webhook
+        const amount = subData ? parseInt(String(subData.jumlah)) : 0;
+        const bungaPersen = subData ? parseInt(String((subData as any).bunga_persen || "0")) : 0;
+        const totalHutang = amount + (amount * bungaPersen / 100);
+        const tenor = subData ? (parseInt(String(subData.tenor)) || 1) : 1;
+        const cicilan = Math.ceil(totalHutang / tenor);
+
+        // Kirim data pencairan ke n8n webhook via Service
+        WebhookService.sendPencairanWebhook({
+          nama: subData?.nama || "Unknown",
+          jumlah_pinjam: amount,
+          tenor: tenor,
+          cicilan: cicilan,
+          petugas: petugas.nama,
+          status: "CAIR"
+        });
+        
         loadData(false);
       }
     } catch (e) {
