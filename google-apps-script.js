@@ -252,6 +252,26 @@ function cairkanPinjaman(payload) {
     
     aktifSheet.appendRow([id, new Date(), pData.id_nasabah, pData.nama, amount, bungaPersen, totalHutang, tenor, cicilan, totalHutang, "Aktif", payload.petugas, new Date(), payload.fotoBukti, id]);
     
+    // Kirim data pencairan ke n8n webhook
+    try {
+      const dataWebhook = {
+        nama: pData.nama,
+        jumlah_pinjaman: amount,
+        tenor: tenor,
+        cicilan: cicilan,
+        tanggal_pencairan: new Date()
+      };
+
+      UrlFetchApp.fetch("https://n8n.tokata.site/webhook/Pinjaman", {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify(dataWebhook),
+        muteHttpExceptions: true
+      });
+    } catch(err) {
+      Logger.log("Webhook n8n gagal: " + err);
+    }
+    
     const rows = pengajuanSheet.getDataRange().getValues();
     const idCol = rows[0].map(h => normalizeHeader(h)).indexOf("id_pengajuan");
     for (let i = 1; i < rows.length; i++) {
