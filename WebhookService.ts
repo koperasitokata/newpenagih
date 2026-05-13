@@ -8,7 +8,7 @@ export const WebhookService = {
     status: string;
   }) => {
     try {
-      await fetch("https://n8n.tokata.site/webhook-test/Angsuran", {
+      await fetch("https://n8n.tokata.site/webhook/Angsuran", {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "text/plain" },
@@ -35,7 +35,7 @@ export const WebhookService = {
     status: string;
   }) => {
     try {
-      await fetch("https://n8n.tokata.site/webhook-test/Pinjaman", {
+      await fetch("https://n8n.tokata.site/webhook/Pinjaman", {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "text/plain" },
