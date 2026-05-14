@@ -8,10 +8,9 @@ export const WebhookService = {
     status: string;
   }) => {
     try {
-      await fetch("https://n8n.tokata.site/webhook/angsuran", {
+      await fetch("https://n8n.tokata.site/webhook-test/angsuran", {
         method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain" },
+        headers: { "Content-Type": "aplication/json" },
         body: JSON.stringify({
           id_pinjaman: payload.id_pinjam,
           jumlah_bayar: String(payload.jumlah || 0),
@@ -37,7 +36,6 @@ export const WebhookService = {
     try {
       await fetch("https://n8n.tokata.site/webhook/Pinjaman", {
         method: "POST",
-        mode: "no-cors",
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({
           nama: payload.nama || "Unknown",
