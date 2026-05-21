@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { PinjamanAktif, Nasabah } from '../types';
 import { CheckCircle2, X, Loader2, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { APP_CONFIG } from '../config';
+import { APP_CONFIG } from '../src/config';
 
 // Helper to dynamically load html-to-image CDN script only when needed
 const loadHtmlToImage = (): Promise<any> => {
