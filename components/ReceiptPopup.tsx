@@ -1,9 +1,45 @@
 import React, { useState, useRef } from 'react';
 import { PinjamanAktif, Nasabah } from '../types';
-import { toPng } from 'html-to-image';
 import { CheckCircle2, X, Loader2, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { APP_CONFIG } from '../src/config';
+
+// Helper to dynamically load html-to-image CDN script only when needed
+const loadHtmlToImage = (): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    if ((window as any).htmlToImage) {
+      resolve((window as any).htmlToImage);
+      return;
+    }
+    let script = document.getElementById('html-to-image-cdn') as HTMLScriptElement;
+    if (script) {
+      script.addEventListener('load', () => {
+        if ((window as any).htmlToImage) {
+          resolve((window as any).htmlToImage);
+        } else {
+          reject(new Error('htmlToImage global loading error'));
+        }
+      });
+      return;
+    }
+
+    script = document.createElement('script');
+    script.id = 'html-to-image-cdn';
+    script.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.min.js';
+    script.async = true;
+    script.onload = () => {
+      if ((window as any).htmlToImage) {
+        resolve((window as any).htmlToImage);
+      } else {
+        reject(new Error('htmlToImage global not found after load'));
+      }
+    };
+    script.onerror = () => {
+      reject(new Error('Failed to load html-to-image CDN script'));
+    };
+    document.head.appendChild(script);
+  });
+};
 
 interface ReceiptPopupProps {
   record: PinjamanAktif;
@@ -24,6 +60,9 @@ const ReceiptPopup: React.FC<ReceiptPopupProps> = ({ record, nasabah, amountPaid
     
     if (element) {
       try {
+        // Dynamic loading of html-to-image library
+        const htmlToImage = await loadHtmlToImage();
+
         // Ensure image attachments (bukti photo) are fully loaded
         const images = element.getElementsByTagName('img');
         await Promise.all(Array.from(images).map(elementImg => {
@@ -36,7 +75,7 @@ const ReceiptPopup: React.FC<ReceiptPopupProps> = ({ record, nasabah, amountPaid
         }));
 
         // Convert the HTML element containing receipt info to high quality crisp PNG image
-        const dataUrl = await toPng(element, {
+        const dataUrl = await htmlToImage.toPng(element, {
           quality: 0.98,
           pixelRatio: 2,
           backgroundColor: '#ffffff',
