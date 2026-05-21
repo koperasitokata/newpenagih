@@ -425,14 +425,15 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[5000] bg-black/90 backdrop-blur-md flex items-center justify-center p-6"
+            className="fixed inset-0 z-[5000] bg-black/90 backdrop-blur-md overflow-y-auto"
           >
-             <motion.div 
-               initial={{ scale: 0.9, opacity: 0 }}
-               animate={{ scale: 1, opacity: 1 }}
-               exit={{ scale: 0.9, opacity: 0 }}
-               className="w-full max-w-sm bg-white rounded-[2.5rem] overflow-hidden shadow-2xl relative"
-             >
+             <div className="min-h-full flex items-start sm:items-center justify-center sm:p-4">
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="w-full min-h-screen sm:min-h-0 sm:max-w-sm bg-white rounded-none sm:rounded-[2.5rem] overflow-hidden shadow-2xl relative flex flex-col"
+                >
                 <div className="bg-emerald-500 p-6 pt-8 pb-10 text-center relative overflow-hidden">
                    <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                    <Banknote size={48} className="text-white mx-auto mb-2 relative z-10" />
@@ -497,6 +498,7 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
                    </div>
                 </div>
              </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
