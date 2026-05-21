@@ -70,11 +70,11 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[3000] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[3000] bg-black/80 backdrop-blur-md flex justify-center overflow-y-auto p-4 py-8">
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={`${currentTheme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-white/10'} w-full max-w-sm rounded-[2.5rem] border shadow-3xl overflow-hidden`}
+        className={`${currentTheme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-900 border-white/10'} w-full max-w-sm rounded-[2.5rem] border shadow-3xl overflow-hidden my-auto`}
       >
         <div className={`p-6 ${currentTheme === 'light' ? 'bg-slate-100/50 border-slate-200' : 'bg-white/5 border-white/5'} border-b flex justify-between items-center`}>
           <h3 className={`font-black text-sm uppercase tracking-widest ${accentColor}`}>Identitas Petugas</h3>
