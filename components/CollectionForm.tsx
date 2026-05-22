@@ -36,6 +36,7 @@ const CollectionForm: React.FC<CollectionFormProps> = ({
   const [cameraError, setCameraError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileQrInputRef = useRef<HTMLInputElement>(null);
   const html5QrCodeRef = useRef<any>(null);
   const isMounted = useRef(true);
 
@@ -83,39 +84,134 @@ const CollectionForm: React.FC<CollectionFormProps> = ({
     }
   };
 
+  const handleQrFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setQrError(null);
+    setIsCameraStarting(true);
+    
+    try {
+      let scannerObj = html5QrCodeRef.current;
+      if (!scannerObj) {
+        scannerObj = new Html5Qrcode("reader-hidden");
+        html5QrCodeRef.current = scannerObj;
+      }
+
+      if (scannerObj.isScanning) {
+        try {
+          await scannerObj.stop();
+        } catch (e) {
+          console.warn("Stop scanner error prior to file scan:", e);
+        }
+      }
+
+      const decodedText = await scannerObj.scanFile(file, false);
+      handleQrSuccess(decodedText);
+    } catch (err: any) {
+      console.error("QR File parse error:", err);
+      setQrError("Gagal membaca QR Code dari file foto. Pastikan posisi QR Code tegak, terang, dan terlihat jelas.");
+    } finally {
+      setIsCameraStarting(false);
+    }
+  };
+
   const startCamera = async () => {
-    if (html5QrCodeRef.current?.isScanning) return;
+    if (html5QrCodeRef.current?.isScanning) {
+      try {
+        await html5QrCodeRef.current.stop();
+      } catch (e) {
+        console.warn("Stop scanner error prior to start:", e);
+      }
+    }
     
     setCameraError(null);
     setIsCameraStarting(true);
     
     // Small delay to ensure DOM is ready
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     try {
       const html5QrCode = new Html5Qrcode("reader-camera");
       html5QrCodeRef.current = html5QrCode;
       
+      // Step 1: Try starting with FacingMode 'environment' but without strict aspect ratio constraint
       const config = { 
         fps: 10, 
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
+        qrbox: (width: number, height: number) => {
+          const minDim = Math.min(width, height);
+          const boxSize = Math.floor(minDim * 0.7);
+          return { width: boxSize, height: boxSize };
+        }
       };
       
-      await html5QrCode.start(
-        { facingMode: "environment" },
-        config,
-        (decodedText) => {
-          handleQrSuccess(decodedText);
-        },
-        (errorMessage) => {
-          // Ignore noisy logs
+      try {
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          config,
+          (decodedText) => {
+            handleQrSuccess(decodedText);
+          },
+          (errorMessage) => {
+            // Noise logs ignored
+          }
+        );
+        setIsCameraStarting(false);
+        return;
+      } catch (errFirst: any) {
+        console.warn("First camera start failed, trying device list query:", errFirst);
+      }
+
+      // Step 2: Try querying specific cameras if facingMode: "environment" fails on iOS Safari
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 0) {
+          // Look for rear camera
+          const backCam = devices.find(device => 
+            device.label.toLowerCase().includes('back') || 
+            device.label.toLowerCase().includes('rear') ||
+            device.label.toLowerCase().includes('environment') ||
+            device.label.toLowerCase().includes('0, back')
+          );
+          // Pick backCam or the last camera (on multi-camera iPhones, the last camera is often the back one)
+          const chosenCameraId = backCam ? backCam.id : devices[devices.length - 1].id;
+          
+          await html5QrCode.start(
+            chosenCameraId,
+            config,
+            (decodedText) => {
+              handleQrSuccess(decodedText);
+            },
+            () => {}
+          );
+          setIsCameraStarting(false);
+          return;
         }
-      );
-      setIsCameraStarting(false);
+      } catch (errDevices: any) {
+        console.warn("Device list fallback query failed:", errDevices);
+      }
+
+      // Step 3: Try starting with absolute minimal constraints
+      try {
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          { fps: 10 },
+          (decodedText) => {
+            handleQrSuccess(decodedText);
+          },
+          () => {}
+        );
+        setIsCameraStarting(false);
+        return;
+      } catch (errMinimal: any) {
+        throw errMinimal;
+      }
+
     } catch (err: any) {
-      console.error("Camera start error:", err);
-      setCameraError("Gagal membuka kamera. Pastikan izin kamera diaktifkan.");
+      console.error("Camera start definitely failed:", err);
+      setCameraError(
+        "Kamera tidak dapat diakses. Pada iPhone/iOS, pastikan izin kamera aktif dalam Pengaturan Safari/Chrome, atau gunakan tombol Kamera Alternatif di bawah."
+      );
       setIsCameraStarting(false);
     }
   };
@@ -314,6 +410,29 @@ const CollectionForm: React.FC<CollectionFormProps> = ({
            </div>
            
            <div id="reader-hidden" className="hidden"></div>
+
+           <div className="flex flex-col items-center gap-3 w-full animate-fade-in">
+             <input 
+               type="file" 
+               ref={fileQrInputRef}
+               capture="environment"
+               accept="image/*"
+               onChange={handleQrFileChange} 
+               className="hidden" 
+             />
+             <button
+               type="button"
+               onClick={() => fileQrInputRef.current?.click()}
+               className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all active:scale-95 ${
+                 currentTheme === 'light' 
+                 ? 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100' 
+                 : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
+               }`}
+             >
+               <Camera size={14} className="text-emerald-500 animate-pulse" />
+               <span>Kamera Alternatif (Ambil Foto QR)</span>
+             </button>
+           </div>
 
            <div className="text-center">
               <p className={`text-[9px] font-black ${textMuted} uppercase tracking-[0.3em] leading-relaxed max-w-[200px]`}>
