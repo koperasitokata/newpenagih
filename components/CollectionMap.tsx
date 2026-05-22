@@ -25,45 +25,100 @@ const CollectionMap: React.FC<CollectionMapProps> = ({ records, submissions, nas
   
   // GPS Watcher
   useEffect(() => {
-    // Ambil posisi awal secepat mungkin
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const loc = {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude
-        };
-        setCollectorLoc(loc);
-        if (mapInstanceRef.current && !hasCenteredOnCollectorRef.current) {
-          mapInstanceRef.current.setView([loc.latitude, loc.longitude], 17);
-          hasCenteredOnCollectorRef.current = true;
-        }
-      },
-      (err) => console.error("Initial GPS Error:", err),
-      { enableHighAccuracy: true }
-    );
+    let watchId: number | null = null;
+    let isMounted = true;
 
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const loc = {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude
-        };
-        setCollectorLoc(loc);
-        
-        // Langsung tampilkan pada titik lokasi kolektor saat pertama kali buka
-        if (!hasCenteredOnCollectorRef.current && mapInstanceRef.current) {
-          mapInstanceRef.current.setView([loc.latitude, loc.longitude], 17);
-          hasCenteredOnCollectorRef.current = true;
-        }
-      },
-      (err) => console.error("GPS Watch Error:", err),
-      { enableHighAccuracy: true }
-    );
-    return () => navigator.geolocation.clearWatch(watchId);
+    const handleSuccess = (pos: GeolocationPosition) => {
+      if (!isMounted) return;
+      const loc = {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude
+      };
+      setCollectorLoc(loc);
+      if (mapInstanceRef.current && !hasCenteredOnCollectorRef.current) {
+        mapInstanceRef.current.invalidateSize();
+        mapInstanceRef.current.setView([loc.latitude, loc.longitude], 17);
+        hasCenteredOnCollectorRef.current = true;
+      }
+    };
+
+    const tryLowAccuracy = () => {
+      if (navigator.geolocation && isMounted) {
+        navigator.geolocation.getCurrentPosition(
+          handleSuccess,
+          (err) => console.error("Fallback Low Accuracy GPS Error:", err.message),
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 15000 }
+        );
+      }
+    };
+
+    if (navigator.geolocation) {
+      // Ambil posisi awal secepat mungkin dengan high accuracy dan timeout ketat
+      navigator.geolocation.getCurrentPosition(
+        handleSuccess,
+        (err) => {
+          console.warn("Initial HighAccuracy GPS failed, trying fallback:", err.message);
+          tryLowAccuracy();
+        },
+        { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
+      );
+
+      // Mulai watch dengan high accuracy
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          if (!isMounted) return;
+          const loc = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude
+          };
+          setCollectorLoc(loc);
+          if (mapInstanceRef.current && !hasCenteredOnCollectorRef.current) {
+            mapInstanceRef.current.invalidateSize();
+            mapInstanceRef.current.setView([loc.latitude, loc.longitude], 17);
+            hasCenteredOnCollectorRef.current = true;
+          }
+        },
+        (err) => {
+          console.warn("GPS Watch Error, switching search to standard accuracy:", err.message);
+          // Jika watch high accuracy gagal, fallback ke watch standard accuracy
+          if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+          }
+          if (isMounted) {
+            watchId = navigator.geolocation.watchPosition(
+              (pos) => {
+                if (!isMounted) return;
+                const loc = {
+                  latitude: pos.coords.latitude,
+                  longitude: pos.coords.longitude
+                };
+                setCollectorLoc(loc);
+                if (mapInstanceRef.current && !hasCenteredOnCollectorRef.current) {
+                  mapInstanceRef.current.invalidateSize();
+                  mapInstanceRef.current.setView([loc.latitude, loc.longitude], 17);
+                  hasCenteredOnCollectorRef.current = true;
+                }
+              },
+              (err2) => console.error("GPS Watch LowAccuracy Error:", err2.message),
+              { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 }
+            );
+          }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+      );
+    }
+
+    return () => {
+      isMounted = false;
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
   }, []);
 
   const centerOnMe = () => {
     if (collectorLoc && mapInstanceRef.current) {
+      mapInstanceRef.current.invalidateSize();
       mapInstanceRef.current.setView([collectorLoc.latitude, collectorLoc.longitude], 17, { animate: true });
     } else {
       alert("Mencari sinyal GPS...");
@@ -206,6 +261,7 @@ const CollectionMap: React.FC<CollectionMapProps> = ({ records, submissions, nas
     L.marker([collectorLoc.latitude, collectorLoc.longitude], { icon, zIndexOffset: 1000 }).addTo(collectorLayerRef.current);
 
     if (!hasCenteredOnCollectorRef.current) {
+      mapInstanceRef.current.invalidateSize();
       mapInstanceRef.current.setView([collectorLoc.latitude, collectorLoc.longitude], 17);
       hasCenteredOnCollectorRef.current = true;
     }
