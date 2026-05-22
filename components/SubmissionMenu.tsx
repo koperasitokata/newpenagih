@@ -98,6 +98,22 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
       fee: adminFee,
       net: netCash
     });
+
+    // Start background pre-fetching of GPS location to save time and prevent timeout
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setTempLocation({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude
+          });
+        },
+        (err) => {
+          console.warn("Pre-fetch GPS locator failed:", err);
+        },
+        { enableHighAccuracy: true, timeout: 15000 }
+      );
+    }
   };
 
   const proceedDisbursement = () => {
@@ -108,7 +124,14 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
     
     setDisbursementTarget(targetSub);
     setIsGettingLoc(true);
+
+    // 1. Immediately trigger the camera file-click synchronously in the main thread handler.
+    // This is required to bypass iOS Safari's strict security blockade on programmatic triggers.
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
     
+    // 2. Refresh geographic location in parallel (non-blocking)
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -117,19 +140,16 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
             longitude: pos.coords.longitude
           });
           setIsGettingLoc(false);
-          setTimeout(() => fileInputRef.current?.click(), 100);
         },
         (err) => {
-          console.error(err);
+          console.warn("Background GPS capture failed:", err);
           setIsGettingLoc(false);
-          alert("Gagal mengambil lokasi GPS. Pastikan GPS aktif.");
-          setTimeout(() => fileInputRef.current?.click(), 100);
+          // We intentionally avoid alerts or blocks here to keep the user flow functional in low signal areas/iframes
         },
-        { enableHighAccuracy: true, timeout: 5000 }
+        { enableHighAccuracy: true, timeout: 15000 }
       );
     } else {
       setIsGettingLoc(false);
-      fileInputRef.current?.click();
     }
   };
 
