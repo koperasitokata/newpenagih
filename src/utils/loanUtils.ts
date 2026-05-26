@@ -1,4 +1,17 @@
 
+import { HOLIDAYS_2026 } from './holidays';
+
+/**
+ * Memeriksa apakah tanggal tertentu merupakan hari libur nasional (tanggal merah utama)
+ */
+const isHoliday = (date: Date): boolean => {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const dateStr = `${yyyy}-${mm}-${dd}`;
+  return HOLIDAYS_2026.some(h => h.date === dateStr && h.is_national_holiday);
+};
+
 /**
  * Parsing tanggal dengan aman, mengutamakan ekstraksi komponen tanggal (Y, M, D)
  * untuk menghindari pergeseran hari akibat zona waktu/jam.
@@ -46,14 +59,14 @@ export const parseSafeDate = (dateStr: string | Date): Date => {
 };
 
 /**
- * Mendapatkan hari kerja berikutnya (menghindari Sabtu dan Minggu)
+ * Mendapatkan hari kerja berikutnya (menghindari Sabtu, Minggu, dan Hari Libur Nasional)
  */
 export const getNextWorkingDay = (date: Date): Date => {
   const next = new Date(date);
   next.setDate(next.getDate() + 1);
   
-  // 0 = Minggu, 6 = Sabtu
-  while (next.getDay() === 0 || next.getDay() === 6) {
+  // 0 = Minggu, 6 = Sabtu, atau jika merupakan hari libur nasional
+  while (next.getDay() === 0 || next.getDay() === 6 || isHoliday(next)) {
     next.setDate(next.getDate() + 1);
   }
   return next;
