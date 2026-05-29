@@ -97,26 +97,28 @@ const Dashboard: React.FC<DashboardProps> = ({
     const queue = records.filter(record => record.status === 'Aktif').map(record => {
       const schedule = generateLoanSchedule(record.tanggal, record.tenor);
       
-      // Cek apakah ada jadwal hari ini
-      const hasToday = schedule.some(date => {
-        const d = new Date(date);
-        d.setHours(0,0,0,0);
-        return d.getTime() === today.getTime();
-      });
-
-      // Cek apakah menunggak (ada jadwal di masa lalu yang belum terbayar)
-      // Logika: Jika (cicilan * jumlah_hari_lewat) > (total_bayar), maka menunggak
-      const pastScheduleCount = schedule.filter(date => {
-        const d = new Date(date);
-        d.setHours(0,0,0,0);
-        return d.getTime() < today.getTime();
-      }).length;
-
       const totalContractValue = record.pokok * (1 + (record.bunga_persen / 100));
       const totalPaid = totalContractValue - record.sisa_hutang;
-      const expectedPaid = record.cicilan * pastScheduleCount;
-      
-      const isOverdue = totalPaid < expectedPaid;
+
+      let hasToday = false;
+      let isOverdue = false;
+      const cicilan = record.cicilan || 0;
+
+      schedule.forEach((ticketDate, i) => {
+        const checkDate = new Date(ticketDate);
+        checkDate.setHours(0, 0, 0, 0);
+
+        const amountAllocated = Math.max(0, Math.min(cicilan, totalPaid - (i * cicilan)));
+        const isActuallyPaid = amountAllocated >= cicilan - 1; // Tolerance for rounding
+
+        if (!isActuallyPaid) {
+          if (checkDate < today) {
+            isOverdue = true;
+          } else if (checkDate.getTime() === today.getTime()) {
+            hasToday = true;
+          }
+        }
+      });
 
       return {
         ...record,
