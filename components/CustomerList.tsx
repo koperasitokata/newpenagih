@@ -78,7 +78,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
 
           if (hasOverdue) {
             status = 'DEBT';
-          } else if (hasToday || (sisa > 0 && sisa < totalContractValue)) {
+          } else if (hasToday) {
             status = 'DUE_TODAY';
           } else {
             status = 'SAFE';
