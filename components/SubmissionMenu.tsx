@@ -175,7 +175,7 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
           const payload = {
             id_pengajuan: disbursementTarget.id_pengajuan,
             petugas: petugas.nama,
-            fotoCair: compressedDataUrl,
+            fotoBukti: compressedDataUrl,
             potongSimpanan: potongSimpanan
           };
           
