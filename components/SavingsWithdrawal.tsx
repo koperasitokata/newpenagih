@@ -9,7 +9,7 @@ interface SavingsWithdrawalProps {
   nasabahList: Nasabah[];
   collector: PetugasProfile;
   onBack: () => void;
-  onSuccess: () => void;
+  onSubmit: (payload: { id_nasabah: string, nama: string, jumlah: number, fotoBukti: string }) => Promise<boolean>;
   currentTheme?: string;
 }
 
@@ -17,7 +17,7 @@ const SavingsWithdrawal: React.FC<SavingsWithdrawalProps> = ({
   nasabahList, 
   collector, 
   onBack,
-  onSuccess,
+  onSubmit,
   currentTheme = 'default'
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,19 +65,12 @@ const SavingsWithdrawal: React.FC<SavingsWithdrawalProps> = ({
     if (!selectedNasabah || !amount || !photo) return;
     setIsLoading(true);
     try {
-      const res = await ApiService.cairkanSimpanan({
+      await onSubmit({
         id_nasabah: selectedNasabah.id_nasabah,
         nama: selectedNasabah.nama,
         jumlah: parseInt(amount.replace(/\D/g, '')),
-        petugas: collector.nama,
         fotoBukti: photo
       });
-      if (res.success) {
-        alert("Pencairan simpanan berhasil!");
-        onSuccess();
-      } else {
-        alert(res.message);
-      }
     } catch (err) {
       alert("Gagal memproses pencairan simpanan.");
     } finally {
