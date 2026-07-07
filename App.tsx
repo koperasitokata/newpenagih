@@ -88,6 +88,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [securingMessage, setSecuringMessage] = useState<string | null>(null);
   
   const [petugas, setPetugas] = useState<PetugasProfile>({ id_petugas: '', nama: 'Memuat...', no_hp: '', jabatan: 'KOLEKTOR', foto: '' });
   const dataSyncedRef = useRef(false);
@@ -600,6 +601,7 @@ const App: React.FC = () => {
   };
 
   const handleAddRecord = async (payload: any) => {
+    setSecuringMessage("Sedang menyimpan transaksi angsuran ke Google Sheets...");
     try {
       const res = await ApiService.bayarAngsuran({
         pakaiSimpanan: false,
@@ -633,30 +635,40 @@ const App: React.FC = () => {
         
         setView(ViewMode.DASHBOARD);
         setPrefilledName('');
-        loadData(false);
+        await loadData(false);
       } else {
         alert("Gagal simpan angsuran: " + res.message);
       }
     } catch (e) {
       alert("Gagal sinkronisasi ke server!");
+    } finally {
+      setSecuringMessage(null);
     }
   };
 
   const handleAddSubmission = async (newSub: any) => {
+    setSecuringMessage("Sedang mendaftarkan pengajuan pinjaman baru ke Google Sheets...");
     try {
       const res = await ApiService.ajukanPinjaman({
         ...newSub,
         petugas: petugas.nama
       });
       if (res.success) {
-        loadData(false);
+        setView(ViewMode.DASHBOARD);
+        await loadData(false);
+      } else {
+        alert("Gagal membuat pengajuan: " + res.message);
       }
     } catch (e) {
       console.error(e);
+      alert("Gagal mendaftarkan pengajuan ke server!");
+    } finally {
+      setSecuringMessage(null);
     }
   };
 
   const handleCairkanPinjaman = async (payload: any) => {
+    setSecuringMessage("Sedang memproses pencairan pinjaman ke Google Sheets...");
     try {
       const res = await ApiService.cairkanPinjaman({
         ...payload,
@@ -683,14 +695,44 @@ const App: React.FC = () => {
           status: "CAIR"
         });
         
-        loadData(false);
+        await loadData(false);
+      } else {
+        alert("Gagal mencairkan pinjaman: " + res.message);
       }
     } catch (e) {
       console.error(e);
+      alert("Gagal mencairkan pinjaman di server!");
+    } finally {
+      setSecuringMessage(null);
+    }
+  };
+
+  const handleCairkanSimpanan = async (payload: { id_nasabah: string, nama: string, jumlah: number, fotoBukti: string }) => {
+    setSecuringMessage("Sedang memproses pencairan simpanan ke Google Sheets...");
+    try {
+      const res = await ApiService.cairkanSimpanan({
+        ...payload,
+        petugas: petugas.nama
+      });
+      if (res.success) {
+        alert("Pencairan simpanan berhasil!");
+        setView(ViewMode.DASHBOARD);
+        await loadData(false);
+        return true;
+      } else {
+        alert(res.message);
+        return false;
+      }
+    } catch (err) {
+      alert("Gagal memproses pencairan simpanan.");
+      return false;
+    } finally {
+      setSecuringMessage(null);
     }
   };
 
   const handleSaveProfile = async (profile: PetugasProfile) => {
+    setSecuringMessage("Sedang memperbarui foto profil petugas...");
     try {
       const res = await ApiService.updateProfilePhoto(
         profile.jabatan,
@@ -705,6 +747,8 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Error updating profile photo:", e);
       alert("Gagal terhubung ke server untuk update profil.");
+    } finally {
+      setSecuringMessage(null);
     }
   };
 
@@ -901,10 +945,7 @@ const App: React.FC = () => {
                     nasabahList={nasabahList}
                     collector={petugas}
                     onBack={() => setView(ViewMode.DASHBOARD)}
-                    onSuccess={() => {
-                      setView(ViewMode.DASHBOARD);
-                      loadData(false);
-                    }}
+                    onSubmit={handleCairkanSimpanan}
                     currentTheme={currentTheme}
                   />
                 </motion.div>
@@ -964,6 +1005,35 @@ const App: React.FC = () => {
             onThemeChange={setCurrentTheme}
             accentColor={activeTheme.navIcon}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {securingMessage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center z-[9999] p-8 text-center"
+          >
+            <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
+              {/* Outer glowing spinning ring */}
+              <div className="absolute inset-0 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin"></div>
+              {/* Inner opposite spinning ring */}
+              <div className="absolute inset-2 border-4 border-blue-500/10 border-b-blue-500 rounded-full animate-spin [animation-direction:reverse]"></div>
+              {/* Icon */}
+              <Loader2 className="animate-spin text-emerald-400" size={32} />
+            </div>
+            <h3 className="text-white text-lg font-black uppercase tracking-widest mb-2 animate-pulse">
+              Sedang Diproses
+            </h3>
+            <p className="text-white/60 text-xs font-bold uppercase tracking-wider max-w-xs leading-relaxed">
+              {securingMessage}
+            </p>
+            <p className="text-emerald-500/40 text-[9px] font-black uppercase tracking-[0.2em] mt-6">
+              Jangan tutup aplikasi atau tekan tombol kembali
+            </p>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
