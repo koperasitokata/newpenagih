@@ -3,6 +3,7 @@ import React from 'react';
 import { PinjamanAktif } from '../types';
 import { Receipt, Image as ImageIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
+import LazyImage from './LazyImage';
 
 interface HistoryListProps {
   records: PinjamanAktif[];
@@ -55,7 +56,7 @@ const HistoryList: React.FC<HistoryListProps> = ({ records, currentTheme = 'defa
               <div className={`${currentTheme === 'light' ? 'bg-white border-slate-200 shadow-sm' : 'bg-white/5 border-white/10 shadow-2xl'} backdrop-blur-xl border rounded-[2.5rem] p-6 flex gap-6 items-center`}>
                 <div className={`w-20 h-24 rounded-2xl overflow-hidden border ${currentTheme === 'light' ? 'border-slate-100 bg-slate-50' : 'border-white/10 bg-white/5'} shadow-lg flex-shrink-0`}>
                   {record.foto_bukti ? (
-                    <img src={record.foto_bukti} alt={record.nama} className="w-full h-full object-cover" />
+                    <LazyImage src={record.foto_bukti} alt={record.nama} className="w-full h-full object-cover" />
                   ) : (
                     <div className={`w-full h-full flex items-center justify-center ${currentTheme === 'light' ? 'text-slate-200' : 'text-white/10'}`}>
                       <ImageIcon size={24} />

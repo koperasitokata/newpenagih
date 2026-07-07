@@ -46,14 +46,14 @@ const SavingsWithdrawal: React.FC<SavingsWithdrawalProps> = ({
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 500;
+        const MAX_WIDTH = 250; // Extreme compression limit
         const scaleSize = MAX_WIDTH / img.width;
         canvas.width = scaleSize < 1 ? MAX_WIDTH : img.width;
         canvas.height = scaleSize < 1 ? img.height * scaleSize : img.height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          setPhoto(canvas.toDataURL('image/jpeg', 0.5));
+          setPhoto(canvas.toDataURL('image/jpeg', 0.2)); // Quality 0.2 for extreme compression
         }
       };
       img.src = event.target?.result as string;

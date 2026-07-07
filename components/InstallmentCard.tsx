@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ApiService } from '../ApiService';
 import { generateLoanSchedule, parseSafeDate } from '../src/utils/loanUtils';
 import ReceiptPopup from './ReceiptPopup';
+import LazyImage from './LazyImage';
 
 interface InstallmentCardProps {
   nasabahId: string;
@@ -282,7 +283,7 @@ const InstallmentCard: React.FC<InstallmentCardProps> = ({
             onClick={() => setSelectedPhoto(activeLoan.foto_bukti)}
             className={`w-full h-48 rounded-3xl overflow-hidden border ${currentTheme === 'light' ? 'border-slate-100' : 'border-white/10'} cursor-pointer hover:opacity-80 transition-all shadow-sm`}
           >
-            <img src={activeLoan.foto_bukti} alt="Bukti" className="w-full h-full object-cover" />
+            <LazyImage src={activeLoan.foto_bukti} alt="Bukti" className="w-full h-full object-cover" />
           </div>
         </div>
       )}
