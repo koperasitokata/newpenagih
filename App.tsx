@@ -63,11 +63,36 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const [view, setView] = useState<ViewMode>(ViewMode.DASHBOARD);
-  const [records, setRecords] = useState<PinjamanAktif[]>([]);
-  const [submissions, setSubmissions] = useState<PengajuanPinjaman[]>([]);
-  const [mutations, setMutations] = useState<Mutation[]>([]);
-  const [nasabahList, setNasabahList] = useState<Nasabah[]>([]);
-  const [fullNasabahList, setFullNasabahList] = useState<Nasabah[]>([]);
+  const [records, setRecords] = useState<PinjamanAktif[]>(() => {
+    try {
+      const saved = localStorage.getItem('cache_records');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [submissions, setSubmissions] = useState<PengajuanPinjaman[]>(() => {
+    try {
+      const saved = localStorage.getItem('cache_submissions');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [mutations, setMutations] = useState<Mutation[]>(() => {
+    try {
+      const saved = localStorage.getItem('cache_mutations');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [nasabahList, setNasabahList] = useState<Nasabah[]>(() => {
+    try {
+      const saved = localStorage.getItem('cache_nasabah_list');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [fullNasabahList, setFullNasabahList] = useState<Nasabah[]>(() => {
+    try {
+      const saved = localStorage.getItem('cache_full_nasabah_list');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [adminNotifications, setAdminNotifications] = useState<{id: number, text: string, time: string}[]>([]);
   const [selectedNasabahId, setSelectedNasabahId] = useState<string | null>(null);
@@ -463,6 +488,11 @@ const App: React.FC = () => {
       });
       
       setMutations([...synthesizedMutations]);
+      try {
+        localStorage.setItem('cache_mutations', JSON.stringify(synthesizedMutations));
+      } catch (e) {
+        console.warn("Failed to cache mutations:", e);
+      }
       
       const syncedSubmissions = Array.from(allSubmissionsMap.values());
       
@@ -529,9 +559,19 @@ const App: React.FC = () => {
 
       const finalRecords = normalizeRecords(allLoanRecords);
       setRecords(finalRecords);
+      try {
+        localStorage.setItem('cache_records', JSON.stringify(finalRecords));
+      } catch (e) {
+        console.warn("Failed to cache records:", e);
+      }
       
       setSubmissions(syncedSubmissions);
       prevSubmissionsRef.current = syncedSubmissions;
+      try {
+        localStorage.setItem('cache_submissions', JSON.stringify(syncedSubmissions));
+      } catch (e) {
+        console.warn("Failed to cache submissions:", e);
+      }
       
       if (data.nasabah_list) {
         setFullNasabahList(data.nasabah_list);
@@ -552,6 +592,12 @@ const App: React.FC = () => {
         });
         
         setNasabahList(filteredNasabah);
+        try {
+          localStorage.setItem('cache_full_nasabah_list', JSON.stringify(data.nasabah_list));
+          localStorage.setItem('cache_nasabah_list', JSON.stringify(filteredNasabah));
+        } catch (e) {
+          console.warn("Failed to cache nasabah list:", e);
+        }
       }
       
       // Simpan mutasi jika ada (untuk Admin)
