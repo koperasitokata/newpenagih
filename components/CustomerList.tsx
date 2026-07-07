@@ -4,6 +4,7 @@ import { PinjamanAktif, Nasabah } from '../types';
 import { ChevronRight, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { generateLoanSchedule } from '../src/utils/loanUtils';
+import LazyImage from './LazyImage';
 
 interface CustomerListProps {
   records: PinjamanAktif[];
@@ -31,7 +32,8 @@ const CustomerList: React.FC<CustomerListProps> = ({
         name: nasabah.nama,
         percentage: 0,
         remainingAmount: 0,
-        status: 'NO_LOAN'
+        status: 'NO_LOAN',
+        foto: nasabah.foto
       });
     } else {
       userLoans.forEach(loan => {
@@ -91,7 +93,8 @@ const CustomerList: React.FC<CustomerListProps> = ({
           name: nasabah.nama,
           percentage: realPercentage,
           remainingAmount: sisa,
-          status
+          status,
+          foto: nasabah.foto
         });
       });
     }
@@ -170,7 +173,7 @@ const CustomerList: React.FC<CustomerListProps> = ({
                         : (currentTheme === 'light' ? 'bg-white border-slate-100 hover:border-emerald-200 shadow-sm' : 'bg-emerald-500/5 border-emerald-500/10 hover:border-emerald-500/50')
               }`}
             >
-              <div className={`w-8 h-8 rounded-lg border flex-shrink-0 flex items-center justify-center font-black text-xs ${
+              <div className={`w-8 h-8 rounded-lg border flex-shrink-0 flex items-center justify-center overflow-hidden font-black text-xs ${
                 isLunas || isNoLoan
                   ? (currentTheme === 'light' ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-white/10 border-white/20 text-white/40')
                   : isDueToday
@@ -179,7 +182,11 @@ const CustomerList: React.FC<CustomerListProps> = ({
                         ? 'bg-red-500/20 border-red-500/40 text-red-500' 
                         : 'bg-emerald-400/20 border-emerald-400/30 text-emerald-500'
               }`}>
-                {customer.name.charAt(0)}
+                {customer.foto ? (
+                  <LazyImage src={customer.foto} alt={customer.name} className="w-full h-full object-cover" />
+                ) : (
+                  customer.name.charAt(0)
+                )}
               </div>
 
               <div className="flex-1 min-w-0">
