@@ -110,10 +110,22 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('app_theme', currentTheme);
   }, [currentTheme]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [securingMessage, setSecuringMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (securingMessage) {
+      const timer = setTimeout(() => {
+        setSecuringMessage(null);
+        setView(ViewMode.DASHBOARD);
+        alert("Batas waktu terlampaui (15 detik). Transaksi Anda sedang diproses di latar belakang. Kembali ke Dashboard.");
+      }, 15000);
+      return () => clearTimeout(timer);
+    }
+  }, [securingMessage]);
   
   const [petugas, setPetugas] = useState<PetugasProfile>({ id_petugas: '', nama: 'Memuat...', no_hp: '', jabatan: 'KOLEKTOR', foto: '' });
   const dataSyncedRef = useRef(false);
