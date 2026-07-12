@@ -1,8 +1,8 @@
 
 import { Nasabah, PinjamanAktif, PengajuanPinjaman, PetugasProfile } from './types';
 
-// GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
-const API_URL = 'https://script.google.com/macros/s/AKfycbwRvcXUI1GVEo-Uc83Y_8eizho-LWPlsHXmcsA_tg2JAspUl9LBF5Sdak3MpiQduajt2g/exec';
+// MENGGUNAKAN API BARU DI SERVER MELALUI PROXY SECURE
+const API_URL = '/api-login';
 
 export const ApiService = {
   /**
