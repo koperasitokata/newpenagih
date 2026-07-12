@@ -1,5 +1,5 @@
 {
-  "name": "vercel penagih",
+  "name": "penagih server \u0026 vercel",
   "description": "A field collection application for tracking payments with automated photo capture and GPS location tagging.",
   "requestFramePermissions": [
     "camera",
