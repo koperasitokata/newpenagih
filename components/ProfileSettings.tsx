@@ -41,7 +41,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 200; // Extreme compression limit for profile photo
+          const MAX_WIDTH = 400; 
           const scaleSize = MAX_WIDTH / img.width;
           
           const targetWidth = scaleSize < 1 ? MAX_WIDTH : img.width;
@@ -53,9 +53,9 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
           const ctx = canvas.getContext('2d');
           if (ctx) {
              ctx.imageSmoothingEnabled = true;
-             ctx.imageSmoothingQuality = 'medium';
+             ctx.imageSmoothingQuality = 'high';
              ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-             setPhoto(canvas.toDataURL('image/jpeg', 0.2)); // Quality 0.2 for extreme compression
+             setPhoto(canvas.toDataURL('image/jpeg', 0.6));
           }
         };
         img.src = event.target?.result as string;

@@ -13,6 +13,74 @@ interface MutationListProps {
   currentTheme?: string;
 }
 
+const safeGetTime = (dateStr: any): number => {
+  if (!dateStr) return 0;
+  if (dateStr instanceof Date) return dateStr.getTime();
+  
+  const str = String(dateStr).trim();
+  
+  // 1. Try standard parser
+  let d = new Date(str);
+  if (!isNaN(d.getTime())) return d.getTime();
+  
+  // 2. Handle DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1; // 0-indexed
+    const year = parseInt(dmyMatch[3], 10);
+    
+    // Let's check for optional time part: e.g. DD/MM/YYYY HH:MM:SS
+    const timeMatch = str.match(/\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+    if (timeMatch) {
+      const hour = parseInt(timeMatch[1], 10);
+      const min = parseInt(timeMatch[2], 10);
+      const sec = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+      return new Date(year, month, day, hour, min, sec).getTime();
+    }
+    return new Date(year, month, day).getTime();
+  }
+  
+  // 3. Handle YYYY-MM-DD
+  const ymdMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    return new Date(year, month, day).getTime();
+  }
+
+  // 4. Handle Indonesian months: e.g. "10 Juli 2026"
+  const monthsId: { [key: string]: number } = {
+    januari: 0, jan: 0,
+    februari: 1, feb: 1,
+    maret: 2, mar: 2,
+    april: 3, apr: 3,
+    mei: 4,
+    juni: 5, jun: 5,
+    juli: 6, jul: 6,
+    agustus: 7, agt: 7, ags: 7,
+    september: 8, sep: 8,
+    oktober: 9, okt: 9,
+    november: 10, nov: 10,
+    desember: 11, des: 11
+  };
+  
+  const lowerStr = str.toLowerCase();
+  for (const [mName, mIdx] of Object.entries(monthsId)) {
+    if (lowerStr.includes(mName)) {
+      const parts = lowerStr.split(/\s+/);
+      const dayPart = parts.find(p => /^\d{1,2}$/.test(p));
+      const yearPart = parts.find(p => /^\d{4}$/.test(p));
+      if (dayPart && yearPart) {
+        return new Date(parseInt(yearPart, 10), mIdx, parseInt(dayPart, 10)).getTime();
+      }
+    }
+  }
+
+  return 0;
+};
+
 const MutationList: React.FC<MutationListProps> = ({ 
   mutations = [], 
   nasabahList = [], 
@@ -30,13 +98,16 @@ const MutationList: React.FC<MutationListProps> = ({
   const textMuted = currentTheme === 'light' ? 'text-slate-400' : 'text-white/40';
 
   const sortedMutations = Array.isArray(mutations) ? [...mutations].sort((a, b) => {
-    return new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime();
+    const timeA = safeGetTime(a.tanggal);
+    const timeB = safeGetTime(b.tanggal);
+    return timeB - timeA;
   }) : [];
 
   const getGroupLabel = (dateStr: string | Date) => {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return String(dateStr).toUpperCase();
+    const time = safeGetTime(dateStr);
+    if (time === 0) return String(dateStr).toUpperCase();
     
+    const d = new Date(time);
     const today = new Date();
     const yesterday = new Date();
     yesterday.setDate(today.getDate() - 1);
@@ -59,7 +130,9 @@ const MutationList: React.FC<MutationListProps> = ({
   });
 
   const formatTime = (dateStr: string | Date) => {
-    return new Date(dateStr).toLocaleTimeString('id-ID', {
+    const time = safeGetTime(dateStr);
+    const d = time === 0 ? new Date() : new Date(time);
+    return d.toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -106,28 +179,35 @@ const MutationList: React.FC<MutationListProps> = ({
                   
                   // Logic to determine if it's income or expense
                   const isIncome = 
-                    keterangan.includes('bayar') || 
-                    keterangan.includes('setor') || 
-                    keterangan.includes('modal') || 
-                    keterangan.includes('pemasukan') ||
                     jenis === 'simpanan' ||
                     jenis === 'pemasukan' ||
-                    jenis === 'angsuran';
+                    jenis === 'angsuran' ||
+                    jenis === 'modal' ||
+                    (!jenis && (
+                      keterangan.includes('setor') ||
+                      keterangan.includes('bayar') ||
+                      keterangan.includes('angsuran') ||
+                      keterangan.includes('pemasukan') ||
+                      keterangan.includes('modal')
+                    ));
 
                   const isExpense = 
-                    keterangan.includes('tarik') || 
-                    keterangan.includes('cair') || 
-                    keterangan.includes('pengeluaran') || 
-                    keterangan.includes('transport') ||
                     jenis === 'pengeluaran' ||
                     jenis === 'penarikan' ||
-                    jenis === 'pencairan';
+                    jenis === 'pencairan' ||
+                    jenis === 'transport' ||
+                    (!jenis && (
+                      keterangan.includes('tarik') ||
+                      keterangan.includes('cair') ||
+                      keterangan.includes('pengeluaran') ||
+                      keterangan.includes('transport')
+                    ));
                   
-                  const isTransport = jenis === 'transport' || keterangan.includes('transport');
-                  const isPencairan = jenis === 'pencairan' || keterangan.includes('pencairan');
-                  const isSimpanan = jenis === 'simpanan' || keterangan.includes('setor simpanan');
-                  const isPenarikan = jenis === 'penarikan' || keterangan.includes('tarik simpanan') || keterangan.includes('cair simpanan');
-                  const isAngsuran = jenis === 'angsuran' || keterangan.includes('angsuran') || keterangan.includes('bayar');
+                  const isTransport = jenis === 'transport' || (!jenis && keterangan.includes('transport'));
+                  const isPencairan = jenis === 'pencairan' || (!jenis && keterangan.includes('pencairan'));
+                  const isSimpanan = jenis === 'simpanan' || (!jenis && keterangan.includes('setor simpanan'));
+                  const isPenarikan = jenis === 'penarikan' || (!jenis && (keterangan.includes('tarik simpanan') || keterangan.includes('cair simpanan')));
+                  const isAngsuran = jenis === 'angsuran' || (!jenis && (keterangan.includes('angsuran') || keterangan.includes('bayar')));
                   
                   return (
                     <motion.div 

@@ -3,7 +3,6 @@ import { PinjamanAktif, Nasabah } from '../types';
 import { CheckCircle2, X, Loader2, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { APP_CONFIG } from '../src/config';
-import LazyImage from './LazyImage';
 
 // Helper to dynamically load html-to-image CDN script only when needed
 const loadHtmlToImage = (): Promise<any> => {
@@ -214,7 +213,7 @@ const ReceiptPopup: React.FC<ReceiptPopupProps> = ({ record, nasabah, amountPaid
                   <div className="h-[1px] flex-1" style={{ backgroundColor: '#f3f4f6' }}></div>
                 </div>
                 <div className="w-full h-24 rounded-lg overflow-hidden border shadow-inner" style={{ borderColor: '#f9fafb' }}>
-                  <LazyImage src={photo} alt="Bukti" className="w-full h-full object-cover" crossOrigin="anonymous" />
+                  <img src={photo} alt="Bukti" className="w-full h-full object-cover" crossOrigin="anonymous" />
                 </div>
               </div>
             )}

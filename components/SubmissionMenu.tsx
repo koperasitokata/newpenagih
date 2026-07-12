@@ -23,6 +23,25 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
   onCairkan,
   currentTheme = 'default'
 }) => {
+  // Sort submissions: 'Approved' (yang butuh dicairkan) is at the very top, followed by 'Pending' (menunggu ACC), followed by 'Disbursed' / 'Cair' (sudah cair)
+  const sortedSubmissions = [...submissions].sort((a, b) => {
+    const getPriority = (status: string) => {
+      const s = String(status || '').toLowerCase();
+      if (s === 'approved') return 1; // "yang butuh di cairkan" -> paling di sebelah atas list
+      if (s === 'pending') return 2;
+      if (s === 'disbursed' || s === 'cair') return 3;
+      return 4;
+    };
+    
+    const pA = getPriority(a.status);
+    const pB = getPriority(b.status);
+    
+    if (pA !== pB) return pA - pB;
+    
+    // Fallback: sort newest first (using id_pengajuan or index)
+    return String(b.id_pengajuan || '').localeCompare(String(a.id_pengajuan || ''));
+  });
+
   const [view, setView] = useState<'LIST' | 'FORM' | 'SELECTOR'>('LIST');
   const [isLoadingNasabah, setIsLoadingNasabah] = useState(false);
   const [selectedNasabah, setSelectedNasabah] = useState<Nasabah | null>(null);
@@ -162,7 +181,7 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 250; // Extreme compression limit
+        const MAX_WIDTH = 500;
         const scaleSize = MAX_WIDTH / img.width;
         canvas.width = scaleSize < 1 ? MAX_WIDTH : img.width;
         canvas.height = scaleSize < 1 ? img.height * scaleSize : img.height;
@@ -170,8 +189,8 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.2); // Quality 0.2 for extreme compression
-          
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.5);
+
           const payload = {
             id_pengajuan: disbursementTarget.id_pengajuan,
             petugas: petugas.nama,
@@ -218,12 +237,12 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
 
           <div className="space-y-2">
             <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] px-1 mb-4 ${textMuted}`}>Daftar Status Pengajuan</h3>
-            {submissions.length === 0 ? (
+            {sortedSubmissions.length === 0 ? (
               <div className={`text-center py-12 ${currentTheme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-white/5 border-white/10'} rounded-[2rem] border-2 border-dashed`}>
                 <p className={`text-xs ${textMuted} font-bold uppercase tracking-widest`}>Belum ada pengajuan</p>
               </div>
             ) : (
-              submissions.map((sub, idx) => (
+              sortedSubmissions.map((sub, idx) => (
                 <motion.div 
                   key={sub.id_pengajuan} 
                   initial={{ opacity: 0, x: -20 }}

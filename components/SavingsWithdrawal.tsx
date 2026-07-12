@@ -9,7 +9,7 @@ interface SavingsWithdrawalProps {
   nasabahList: Nasabah[];
   collector: PetugasProfile;
   onBack: () => void;
-  onSubmit: (payload: { id_nasabah: string, nama: string, jumlah: number, fotoBukti: string }) => Promise<boolean>;
+  onSuccess: () => void;
   currentTheme?: string;
 }
 
@@ -17,7 +17,7 @@ const SavingsWithdrawal: React.FC<SavingsWithdrawalProps> = ({
   nasabahList, 
   collector, 
   onBack,
-  onSubmit,
+  onSuccess,
   currentTheme = 'default'
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,14 +46,14 @@ const SavingsWithdrawal: React.FC<SavingsWithdrawalProps> = ({
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 250; // Extreme compression limit
+        const MAX_WIDTH = 500;
         const scaleSize = MAX_WIDTH / img.width;
         canvas.width = scaleSize < 1 ? MAX_WIDTH : img.width;
         canvas.height = scaleSize < 1 ? img.height * scaleSize : img.height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          setPhoto(canvas.toDataURL('image/jpeg', 0.2)); // Quality 0.2 for extreme compression
+          setPhoto(canvas.toDataURL('image/jpeg', 0.5));
         }
       };
       img.src = event.target?.result as string;
@@ -65,12 +65,19 @@ const SavingsWithdrawal: React.FC<SavingsWithdrawalProps> = ({
     if (!selectedNasabah || !amount || !photo) return;
     setIsLoading(true);
     try {
-      await onSubmit({
+      const res = await ApiService.cairkanSimpanan({
         id_nasabah: selectedNasabah.id_nasabah,
         nama: selectedNasabah.nama,
         jumlah: parseInt(amount.replace(/\D/g, '')),
+        petugas: collector.nama,
         fotoBukti: photo
       });
+      if (res.success) {
+        alert("Pencairan simpanan berhasil!");
+        onSuccess();
+      } else {
+        alert(res.message);
+      }
     } catch (err) {
       alert("Gagal memproses pencairan simpanan.");
     } finally {
