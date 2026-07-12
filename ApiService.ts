@@ -2,7 +2,7 @@
 import { Nasabah, PinjamanAktif, PengajuanPinjaman, PetugasProfile } from './types';
 
 // MENGGUNAKAN API BARU DI SERVER MELALUI PROXY SECURE
-const API_URL = '/api-login';
+const API_URL = 'https://backend.tokata.site/v1/login';
 
 export const ApiService = {
   /**
