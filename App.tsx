@@ -19,6 +19,74 @@ import { WebhookService } from './WebhookService';
 import { Home, FileSignature, Camera, Users, Map as MapIcon, Loader2, AlertCircle, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+function parseDateStringToISO(dateStr: any): string {
+  if (!dateStr) return new Date().toISOString();
+  if (dateStr instanceof Date) return dateStr.toISOString();
+  
+  const str = String(dateStr).trim();
+  
+  // 1. Try standard JS parsing
+  let d = new Date(str);
+  if (!isNaN(d.getTime())) return d.toISOString();
+  
+  // 2. Handle DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    
+    // Check for optional time part
+    const timeMatch = str.match(/\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+    if (timeMatch) {
+      const hour = parseInt(timeMatch[1], 10);
+      const min = parseInt(timeMatch[2], 10);
+      const sec = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+      return new Date(year, month, day, hour, min, sec).toISOString();
+    }
+    return new Date(year, month, day).toISOString();
+  }
+  
+  // 3. Handle YYYY-MM-DD
+  const ymdMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    return new Date(year, month, day).toISOString();
+  }
+
+  // 4. Handle Indonesian months
+  const monthsId: { [key: string]: number } = {
+    januari: 0, jan: 0,
+    februari: 1, feb: 1,
+    maret: 2, mar: 2,
+    april: 3, apr: 3,
+    mei: 4,
+    juni: 5, jun: 5,
+    juli: 6, jul: 6,
+    agustus: 7, agt: 7, ags: 7,
+    september: 8, sep: 8,
+    oktober: 9, okt: 9,
+    november: 10, nov: 10,
+    desember: 11, des: 11
+  };
+  
+  const lowerStr = str.toLowerCase();
+  for (const [mName, mIdx] of Object.entries(monthsId)) {
+    if (lowerStr.includes(mName)) {
+      const parts = lowerStr.split(/\s+/);
+      const dayPart = parts.find(p => /^\d{1,2}$/.test(p));
+      const yearPart = parts.find(p => /^\d{4}$/.test(p));
+      if (dayPart && yearPart) {
+        return new Date(parseInt(yearPart, 10), mIdx, parseInt(dayPart, 10)).toISOString();
+      }
+    }
+  }
+
+  return str;
+}
+
 const THEMES = {
   default: {
     bg: 'bg-slate-950',
@@ -63,36 +131,11 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const [view, setView] = useState<ViewMode>(ViewMode.DASHBOARD);
-  const [records, setRecords] = useState<PinjamanAktif[]>(() => {
-    try {
-      const saved = localStorage.getItem('cache_records');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-  const [submissions, setSubmissions] = useState<PengajuanPinjaman[]>(() => {
-    try {
-      const saved = localStorage.getItem('cache_submissions');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-  const [mutations, setMutations] = useState<Mutation[]>(() => {
-    try {
-      const saved = localStorage.getItem('cache_mutations');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-  const [nasabahList, setNasabahList] = useState<Nasabah[]>(() => {
-    try {
-      const saved = localStorage.getItem('cache_nasabah_list');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-  const [fullNasabahList, setFullNasabahList] = useState<Nasabah[]>(() => {
-    try {
-      const saved = localStorage.getItem('cache_full_nasabah_list');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  const [records, setRecords] = useState<PinjamanAktif[]>([]);
+  const [submissions, setSubmissions] = useState<PengajuanPinjaman[]>([]);
+  const [mutations, setMutations] = useState<Mutation[]>([]);
+  const [nasabahList, setNasabahList] = useState<Nasabah[]>([]);
+  const [fullNasabahList, setFullNasabahList] = useState<Nasabah[]>([]);
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [adminNotifications, setAdminNotifications] = useState<{id: number, text: string, time: string}[]>([]);
   const [selectedNasabahId, setSelectedNasabahId] = useState<string | null>(null);
@@ -110,22 +153,9 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('app_theme', currentTheme);
   }, [currentTheme]);
-
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [securingMessage, setSecuringMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (securingMessage) {
-      const timer = setTimeout(() => {
-        setSecuringMessage(null);
-        setView(ViewMode.DASHBOARD);
-        alert("Batas waktu terlampaui (15 detik). Transaksi Anda sedang diproses di latar belakang. Kembali ke Dashboard.");
-      }, 15000);
-      return () => clearTimeout(timer);
-    }
-  }, [securingMessage]);
   
   const [petugas, setPetugas] = useState<PetugasProfile>({ id_petugas: '', nama: 'Memuat...', no_hp: '', jabatan: 'KOLEKTOR', foto: '' });
   const dataSyncedRef = useRef(false);
@@ -493,18 +523,12 @@ const App: React.FC = () => {
       
       // Sort mutations by date descending
       synthesizedMutations.sort((a, b) => {
-        const dateA = new Date(a.tanggal).getTime();
-        const dateB = new Date(b.tanggal).getTime();
-        if (isNaN(dateA) || isNaN(dateB)) return 0;
-        return dateB - dateA;
+        const timeA = new Date(parseDateStringToISO(a.tanggal)).getTime();
+        const timeB = new Date(parseDateStringToISO(b.tanggal)).getTime();
+        return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
       });
       
       setMutations([...synthesizedMutations]);
-      try {
-        localStorage.setItem('cache_mutations', JSON.stringify(synthesizedMutations));
-      } catch (e) {
-        console.warn("Failed to cache mutations:", e);
-      }
       
       const syncedSubmissions = Array.from(allSubmissionsMap.values());
       
@@ -571,19 +595,35 @@ const App: React.FC = () => {
 
       const finalRecords = normalizeRecords(allLoanRecords);
       setRecords(finalRecords);
-      try {
-        localStorage.setItem('cache_records', JSON.stringify(finalRecords));
-      } catch (e) {
-        console.warn("Failed to cache records:", e);
-      }
       
-      setSubmissions(syncedSubmissions);
-      prevSubmissionsRef.current = syncedSubmissions;
-      try {
-        localStorage.setItem('cache_submissions', JSON.stringify(syncedSubmissions));
-      } catch (e) {
-        console.warn("Failed to cache submissions:", e);
-      }
+      // Synthesis fallback: Ensure every record in finalRecords also has a corresponding 'Disbursed' submission if not present
+      finalRecords.forEach((rec: any) => {
+        const id = String(rec.id_pinjaman || rec.id || '').trim();
+        const nasId = String(rec.id_nasabah || '').trim();
+        
+        // Find if this loan is already represented in allSubmissionsMap
+        const isAlreadyInMap = Array.from(allSubmissionsMap.values()).some(
+          s => String(s.id_pengajuan) === id || 
+               (String(s.id_nasabah) === nasId && s.status === 'Disbursed')
+        );
+        
+        if (!isAlreadyInMap && id) {
+          allSubmissionsMap.set(`DISB-${id}`, {
+            id_pengajuan: id,
+            id_nasabah: nasId,
+            nama: rec.nama || getDisplayName(nasId, 'Nasabah'),
+            jumlah: rec.pokok || rec.total_hutang || 0,
+            tenor: rec.tenor || 0,
+            status: 'Disbursed',
+            tanggal: rec.tanggal || new Date().toISOString(),
+            submissionType: 'PINJAMAN'
+          } as any);
+        }
+      });
+
+      const finalSyncedSubmissions = Array.from(allSubmissionsMap.values());
+      setSubmissions(finalSyncedSubmissions);
+      prevSubmissionsRef.current = finalSyncedSubmissions;
       
       if (data.nasabah_list) {
         setFullNasabahList(data.nasabah_list);
@@ -604,12 +644,6 @@ const App: React.FC = () => {
         });
         
         setNasabahList(filteredNasabah);
-        try {
-          localStorage.setItem('cache_full_nasabah_list', JSON.stringify(data.nasabah_list));
-          localStorage.setItem('cache_nasabah_list', JSON.stringify(filteredNasabah));
-        } catch (e) {
-          console.warn("Failed to cache nasabah list:", e);
-        }
       }
       
       // Simpan mutasi jika ada (untuk Admin)
@@ -659,7 +693,6 @@ const App: React.FC = () => {
   };
 
   const handleAddRecord = async (payload: any) => {
-    setSecuringMessage("Sedang menyimpan transaksi angsuran ke Google Sheets...");
     try {
       const res = await ApiService.bayarAngsuran({
         pakaiSimpanan: false,
@@ -668,17 +701,9 @@ const App: React.FC = () => {
         petugas: petugas.nama
       });
       if (res.success) {
-        // Kirim data pembayaran angsuran ke n8n webhook via Service
+        // Webhook n8n sekarang dikirim secara otomatis oleh backend server (api-login.php)
         const activeLoan = records.find(r => r.id_pinjaman === payload.id_pinjam);
         const newSisa = activeLoan ? activeLoan.sisa_hutang - payload.jumlah : 0;
-        
-        WebhookService.sendAngsuranWebhook({
-          id_pinjam: payload.id_pinjam,
-          jumlah: payload.jumlah,
-          sisa_hutang: newSisa,
-          petugas: petugas.nama,
-          status: newSisa <= 0 ? "LUNAS" : "ANGSURAN_MASUK"
-        });
 
         const activeNasabah = nasabahList.find(n => n.id_nasabah === payload.id_nasabah);
         
@@ -693,104 +718,45 @@ const App: React.FC = () => {
         
         setView(ViewMode.DASHBOARD);
         setPrefilledName('');
-        await loadData(false);
+        loadData(false);
       } else {
         alert("Gagal simpan angsuran: " + res.message);
       }
     } catch (e) {
       alert("Gagal sinkronisasi ke server!");
-    } finally {
-      setSecuringMessage(null);
     }
   };
 
   const handleAddSubmission = async (newSub: any) => {
-    setSecuringMessage("Sedang mendaftarkan pengajuan pinjaman baru ke Google Sheets...");
     try {
       const res = await ApiService.ajukanPinjaman({
         ...newSub,
         petugas: petugas.nama
       });
       if (res.success) {
-        setView(ViewMode.DASHBOARD);
-        await loadData(false);
-      } else {
-        alert("Gagal membuat pengajuan: " + res.message);
+        loadData(false);
       }
     } catch (e) {
       console.error(e);
-      alert("Gagal mendaftarkan pengajuan ke server!");
-    } finally {
-      setSecuringMessage(null);
     }
   };
 
   const handleCairkanPinjaman = async (payload: any) => {
-    setSecuringMessage("Sedang memproses pencairan pinjaman ke Google Sheets...");
     try {
       const res = await ApiService.cairkanPinjaman({
         ...payload,
         petugas: petugas.nama
       });
       if (res.success) {
-        // Cari data pengajuan asli untuk melengkapi data webhook
-        const subData = submissions.find(s => s.id_pengajuan === payload.id_pengajuan);
-        
-        // Hitung cicilan untuk payload webhook
-        const amount = subData ? parseInt(String(subData.jumlah)) : 0;
-        const bungaPersen = subData ? parseInt(String((subData as any).bunga_persen || "0")) : 0;
-        const totalHutang = amount + (amount * bungaPersen / 100);
-        const tenor = subData ? (parseInt(String(subData.tenor)) || 1) : 1;
-        const cicilan = Math.ceil(totalHutang / tenor);
-
-        // Kirim data pencairan ke n8n webhook via Service
-        WebhookService.sendPencairanWebhook({
-          nama: subData?.nama || "Unknown",
-          jumlah_pinjam: amount,
-          tenor: tenor,
-          cicilan: cicilan,
-          petugas: petugas.nama,
-          status: "CAIR"
-        });
-        
-        await loadData(false);
-      } else {
-        alert("Gagal mencairkan pinjaman: " + res.message);
+        // Webhook n8n sekarang dikirim secara otomatis oleh backend server (api-login.php)
+        loadData(false);
       }
     } catch (e) {
       console.error(e);
-      alert("Gagal mencairkan pinjaman di server!");
-    } finally {
-      setSecuringMessage(null);
-    }
-  };
-
-  const handleCairkanSimpanan = async (payload: { id_nasabah: string, nama: string, jumlah: number, fotoBukti: string }) => {
-    setSecuringMessage("Sedang memproses pencairan simpanan ke Google Sheets...");
-    try {
-      const res = await ApiService.cairkanSimpanan({
-        ...payload,
-        petugas: petugas.nama
-      });
-      if (res.success) {
-        alert("Pencairan simpanan berhasil!");
-        setView(ViewMode.DASHBOARD);
-        await loadData(false);
-        return true;
-      } else {
-        alert(res.message);
-        return false;
-      }
-    } catch (err) {
-      alert("Gagal memproses pencairan simpanan.");
-      return false;
-    } finally {
-      setSecuringMessage(null);
     }
   };
 
   const handleSaveProfile = async (profile: PetugasProfile) => {
-    setSecuringMessage("Sedang memperbarui foto profil petugas...");
     try {
       const res = await ApiService.updateProfilePhoto(
         profile.jabatan,
@@ -805,8 +771,6 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Error updating profile photo:", e);
       alert("Gagal terhubung ke server untuk update profil.");
-    } finally {
-      setSecuringMessage(null);
     }
   };
 
@@ -1003,7 +967,10 @@ const App: React.FC = () => {
                     nasabahList={nasabahList}
                     collector={petugas}
                     onBack={() => setView(ViewMode.DASHBOARD)}
-                    onSubmit={handleCairkanSimpanan}
+                    onSuccess={() => {
+                      setView(ViewMode.DASHBOARD);
+                      loadData(false);
+                    }}
                     currentTheme={currentTheme}
                   />
                 </motion.div>
@@ -1063,35 +1030,6 @@ const App: React.FC = () => {
             onThemeChange={setCurrentTheme}
             accentColor={activeTheme.navIcon}
           />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {securingMessage && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center z-[9999] p-8 text-center"
-          >
-            <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
-              {/* Outer glowing spinning ring */}
-              <div className="absolute inset-0 border-4 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin"></div>
-              {/* Inner opposite spinning ring */}
-              <div className="absolute inset-2 border-4 border-blue-500/10 border-b-blue-500 rounded-full animate-spin [animation-direction:reverse]"></div>
-              {/* Icon */}
-              <Loader2 className="animate-spin text-emerald-400" size={32} />
-            </div>
-            <h3 className="text-white text-lg font-black uppercase tracking-widest mb-2 animate-pulse">
-              Sedang Diproses
-            </h3>
-            <p className="text-white/60 text-xs font-bold uppercase tracking-wider max-w-xs leading-relaxed">
-              {securingMessage}
-            </p>
-            <p className="text-emerald-500/40 text-[9px] font-black uppercase tracking-[0.2em] mt-6">
-              Jangan tutup aplikasi atau tekan tombol kembali
-            </p>
-          </motion.div>
         )}
       </AnimatePresence>
     </div>
