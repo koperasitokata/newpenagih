@@ -1,8 +1,12 @@
 {
   "rewrites": [
     {
-      "source": "/((?!manifest.json|icon-192.png|icon-512.png).*)",
-      "destination": "/index.html"
+      "source": "/api-login",
+      "destination": "https://backend.tokata.site/v1/login"
+    },
+    {
+      "source": "/api/photo",
+      "destination": "https://backend.tokata.site/v1/login"
     }
   ]
 }
