@@ -209,8 +209,25 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
   };
 
   const formatCurrency = (val: string | number) => {
-    const num = typeof val === 'string' ? val.replace(/\D/g, '') : val.toString();
-    return num ? new Intl.NumberFormat('id-ID').format(parseInt(num)) : '';
+    if (val === null || val === undefined || val === '') return '';
+    
+    let numStr = '';
+    if (typeof val === 'number') {
+      numStr = Math.round(val).toString();
+    } else {
+      let s = val.trim();
+      if (!isNaN(Number(s))) {
+        numStr = Math.round(Number(s)).toString();
+      } else {
+        s = s.replace(/Rp/gi, '').trim();
+        if (s.endsWith('.00') || s.endsWith(',00')) {
+          s = s.slice(0, -3);
+        }
+        numStr = s.replace(/\D/g, '');
+      }
+    }
+    
+    return numStr ? new Intl.NumberFormat('id-ID').format(parseInt(numStr)) : '';
   };
 
   return (
