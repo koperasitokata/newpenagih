@@ -216,8 +216,10 @@ const SubmissionMenu: React.FC<SubmissionMenuProps> = ({
       numStr = Math.round(val).toString();
     } else {
       let s = val.trim();
-      if (!isNaN(Number(s))) {
-        numStr = Math.round(Number(s)).toString();
+      // Check if it is a standard database float or plain number without thousands separators (e.g. "300000.00" or "300000")
+      // A standard float can have optionally a dot/comma followed by 1 or 2 decimal digits, but not 3 digits which indicates a thousands separator
+      if (/^\d+([\.,]\d{1,2})?$/.test(s)) {
+        numStr = Math.round(Number(s.replace(',', '.'))).toString();
       } else {
         s = s.replace(/Rp/gi, '').trim();
         if (s.endsWith('.00') || s.endsWith(',00')) {
